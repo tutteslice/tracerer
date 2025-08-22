@@ -1,0 +1,610 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <title>Tracing Guide - Write Perfect Letters</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            overflow: hidden;
+            position: fixed;
+            width: 100%;
+            height: 100%;
+            background: #000;
+        }
+
+        #videoContainer {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 1;
+        }
+
+        #camera {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        #textOverlay {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 2;
+            font-family: 'Georgia', serif;
+            color: rgba(0, 0, 0, 0.7);
+            font-size: 60px;
+            white-space: nowrap;
+            pointer-events: none;
+            user-select: none;
+            text-shadow: 0 0 2px rgba(255, 255, 255, 0.5);
+            transition: all 0.3s ease;
+        }
+
+        #controls {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: linear-gradient(to top, rgba(0,0,0,0.9), rgba(0,0,0,0.7));
+            padding: 20px;
+            z-index: 3;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            backdrop-filter: blur(10px);
+            border-top: 1px solid rgba(255,255,255,0.1);
+            transition: transform 0.3s ease;
+        }
+
+        #controls.minimized {
+            transform: translateY(calc(100% - 60px));
+        }
+
+        .control-group {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .control-group label {
+            color: white;
+            font-size: 14px;
+            min-width: 80px;
+            font-weight: 500;
+        }
+
+        .control-group input[type="text"] {
+            flex: 1;
+            padding: 10px;
+            border: 1px solid rgba(255,255,255,0.2);
+            border-radius: 8px;
+            background: rgba(255,255,255,0.1);
+            color: white;
+            font-size: 16px;
+            backdrop-filter: blur(10px);
+        }
+
+        .control-group input[type="range"] {
+            flex: 1;
+            -webkit-appearance: none;
+            appearance: none;
+            height: 6px;
+            background: rgba(255,255,255,0.2);
+            border-radius: 3px;
+            outline: none;
+        }
+
+        .control-group input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 20px;
+            height: 20px;
+            background: white;
+            border-radius: 50%;
+            cursor: pointer;
+        }
+
+        .control-group input[type="range"]::-moz-range-thumb {
+            width: 20px;
+            height: 20px;
+            background: white;
+            border-radius: 50%;
+            cursor: pointer;
+            border: none;
+        }
+
+        .value-display {
+            color: #4CAF50;
+            font-size: 12px;
+            min-width: 40px;
+            text-align: right;
+        }
+
+        select {
+            flex: 1;
+            padding: 10px;
+            border: 1px solid rgba(255,255,255,0.2);
+            border-radius: 8px;
+            background: rgba(255,255,255,0.1);
+            color: white;
+            font-size: 16px;
+            backdrop-filter: blur(10px);
+        }
+
+        select option {
+            background: #333;
+            color: white;
+        }
+
+        #toggleControls {
+            position: absolute;
+            top: -40px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0,0,0,0.8);
+            color: white;
+            border: 1px solid rgba(255,255,255,0.2);
+            border-radius: 20px;
+            padding: 8px 20px;
+            font-size: 14px;
+            cursor: pointer;
+            backdrop-filter: blur(10px);
+        }
+
+        #startButton {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 12px;
+            padding: 20px 40px;
+            font-size: 18px;
+            font-weight: 600;
+            cursor: pointer;
+            z-index: 10;
+            box-shadow: 0 10px 30px rgba(102, 126, 234, 0.4);
+            transition: all 0.3s ease;
+        }
+
+        #startButton:hover {
+            transform: translate(-50%, -50%) scale(1.05);
+            box-shadow: 0 15px 40px rgba(102, 126, 234, 0.6);
+        }
+
+        .hidden {
+            display: none !important;
+        }
+
+        .camera-selector {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 4;
+        }
+
+        #cameraSwitch {
+            background: rgba(0,0,0,0.7);
+            color: white;
+            border: 1px solid rgba(255,255,255,0.2);
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            font-size: 24px;
+            cursor: pointer;
+            backdrop-filter: blur(10px);
+            transition: all 0.3s ease;
+            position: relative;
+        }
+
+        #cameraSwitch:hover {
+            background: rgba(255,255,255,0.2);
+            transform: rotate(180deg);
+        }
+
+        #cameraSwitch:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .camera-info {
+            position: fixed;
+            top: 80px;
+            right: 20px;
+            background: rgba(0,0,0,0.7);
+            color: white;
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-size: 12px;
+            z-index: 4;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255,255,255,0.2);
+            max-width: 150px;
+            text-align: center;
+        }
+
+        .preset-buttons {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .preset-btn {
+            padding: 8px 16px;
+            background: rgba(255,255,255,0.1);
+            color: white;
+            border: 1px solid rgba(255,255,255,0.2);
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.2s ease;
+        }
+
+        .preset-btn:hover {
+            background: rgba(255,255,255,0.2);
+        }
+
+        @media (max-width: 480px) {
+            #controls {
+                padding: 15px;
+            }
+            
+            .control-group label {
+                min-width: 60px;
+                font-size: 12px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div id="videoContainer">
+        <video id="camera" autoplay playsinline></video>
+    </div>
+
+    <div id="textOverlay">Hello World</div>
+
+    <button id="startButton">Start Camera</button>
+
+    <div class="camera-selector hidden">
+        <button id="cameraSwitch">🔄</button>
+        <div class="camera-info hidden" id="cameraInfo"></div>
+    </div>
+
+    <div id="controls" class="hidden">
+        <button id="toggleControls">Hide Controls</button>
+        
+        <div class="control-group">
+            <label>Text:</label>
+            <input type="text" id="textInput" value="Hello World" placeholder="Enter your text">
+        </div>
+
+        <div class="control-group">
+            <label>Font:</label>
+            <select id="fontSelect">
+                <option value="Georgia, serif">Georgia (Serif)</option>
+                <option value="Arial, sans-serif">Arial (Sans)</option>
+                <option value="'Times New Roman', serif">Times New Roman</option>
+                <option value="'Courier New', monospace">Courier (Mono)</option>
+                <option value="'Comic Sans MS', cursive">Comic Sans</option>
+                <option value="'Brush Script MT', cursive">Brush Script</option>
+                <option value="Helvetica, sans-serif">Helvetica</option>
+                <option value="Verdana, sans-serif">Verdana</option>
+            </select>
+        </div>
+
+        <div class="control-group">
+            <label>Presets:</label>
+            <div class="preset-buttons">
+                <button class="preset-btn" data-text="ABCDEFG">Alphabet</button>
+                <button class="preset-btn" data-text="abcdefg">Lowercase</button>
+                <button class="preset-btn" data-text="1234567890">Numbers</button>
+                <button class="preset-btn" data-text="Quick Brown Fox">Practice</button>
+            </div>
+        </div>
+
+        <div class="control-group">
+            <label>Size:</label>
+            <input type="range" id="sizeSlider" min="20" max="200" value="60">
+            <span class="value-display" id="sizeValue">60px</span>
+        </div>
+
+        <div class="control-group">
+            <label>Opacity:</label>
+            <input type="range" id="opacitySlider" min="10" max="100" value="70">
+            <span class="value-display" id="opacityValue">70%</span>
+        </div>
+
+        <div class="control-group">
+            <label>Vertical:</label>
+            <input type="range" id="verticalSlider" min="0" max="100" value="50">
+            <span class="value-display" id="verticalValue">50%</span>
+        </div>
+
+        <div class="control-group">
+            <label>Horizontal:</label>
+            <input type="range" id="horizontalSlider" min="0" max="100" value="50">
+            <span class="value-display" id="horizontalValue">50%</span>
+        </div>
+
+        <div class="control-group">
+            <label>Rotation:</label>
+            <input type="range" id="rotationSlider" min="-180" max="180" value="0">
+            <span class="value-display" id="rotationValue">0°</span>
+        </div>
+    </div>
+
+    <script>
+        let stream = null;
+        let cameras = [];
+        let currentCameraIndex = 0;
+        const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent);
+        const isIPad = /iPad/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+
+        const video = document.getElementById('camera');
+        const textOverlay = document.getElementById('textOverlay');
+        const controls = document.getElementById('controls');
+        const startButton = document.getElementById('startButton');
+        const cameraSwitch = document.getElementById('cameraSwitch');
+        const toggleControls = document.getElementById('toggleControls');
+
+        // Control elements
+        const textInput = document.getElementById('textInput');
+        const fontSelect = document.getElementById('fontSelect');
+        const sizeSlider = document.getElementById('sizeSlider');
+        const opacitySlider = document.getElementById('opacitySlider');
+        const verticalSlider = document.getElementById('verticalSlider');
+        const horizontalSlider = document.getElementById('horizontalSlider');
+        const rotationSlider = document.getElementById('rotationSlider');
+
+        // Value displays
+        const sizeValue = document.getElementById('sizeValue');
+        const opacityValue = document.getElementById('opacityValue');
+        const verticalValue = document.getElementById('verticalValue');
+        const horizontalValue = document.getElementById('horizontalValue');
+        const rotationValue = document.getElementById('rotationValue');
+
+        // Get available cameras
+        async function getCameras() {
+            try {
+                // First, request basic camera access to ensure permissions
+                await navigator.mediaDevices.getUserMedia({ video: true });
+                
+                const devices = await navigator.mediaDevices.enumerateDevices();
+                cameras = devices.filter(device => device.kind === 'videoinput');
+                
+                // Try to identify back camera (usually has 'back' or 'environment' in label)
+                // Or on iOS devices, the back camera is often the second one
+                if (cameras.length > 1) {
+                    const backCameraIndex = cameras.findIndex(camera => 
+                        camera.label.toLowerCase().includes('back') || 
+                        camera.label.toLowerCase().includes('environment') ||
+                        camera.label.toLowerCase().includes('rear')
+                    );
+                    
+                    if (backCameraIndex !== -1) {
+                        currentCameraIndex = backCameraIndex;
+                    } else if (isIOS) {
+                        // On iOS devices, back camera is usually at index 1
+                        currentCameraIndex = 1;
+                    }
+                }
+                
+                console.log('Available cameras:', cameras);
+                return cameras;
+            } catch (err) {
+                console.error('Error getting cameras:', err);
+                return [];
+            }
+        }
+
+        // Start camera with specific device
+        async function startCameraWithDevice(deviceId) {
+            try {
+                if (stream) {
+                    stream.getTracks().forEach(track => track.stop());
+                }
+
+                const constraints = {
+                    video: {
+                        deviceId: deviceId ? { exact: deviceId } : undefined,
+                        width: { ideal: 1920 },
+                        height: { ideal: 1080 }
+                    }
+                };
+
+                stream = await navigator.mediaDevices.getUserMedia(constraints);
+                video.srcObject = stream;
+                
+                console.log('Started camera with device:', deviceId || 'default');
+            } catch (err) {
+                console.error('Error starting camera with device:', err);
+                // Fallback to basic constraints
+                try {
+                    stream = await navigator.mediaDevices.getUserMedia({ video: true });
+                    video.srcObject = stream;
+                } catch (fallbackErr) {
+                    console.error('Fallback camera start failed:', fallbackErr);
+                    alert('Unable to access camera. Please ensure you have granted camera permissions.');
+                }
+            }
+        }
+
+        // Start camera
+        async function startCamera() {
+            try {
+                // Get available cameras first
+                await getCameras();
+                
+                if (cameras.length > 0) {
+                    // Use the selected camera
+                    await startCameraWithDevice(cameras[currentCameraIndex].deviceId);
+                } else {
+                    // Fallback to default camera
+                    await startCameraWithDevice();
+                }
+                
+                startButton.classList.add('hidden');
+                controls.classList.remove('hidden');
+                
+                // Only show camera switch if multiple cameras are available
+                if (cameras.length > 1) {
+                    document.querySelector('.camera-selector').classList.remove('hidden');
+                    updateCameraInfo();
+                }
+            } catch (err) {
+                console.error('Error accessing camera:', err);
+                alert('Unable to access camera. Please ensure you have granted camera permissions.');
+            }
+        }
+
+        // Switch camera
+        async function switchCamera() {
+            if (cameras.length <= 1) {
+                console.log('Only one camera available');
+                return;
+            }
+            
+            // Disable button during switch
+            cameraSwitch.disabled = true;
+            
+            // Cycle through available cameras
+            currentCameraIndex = (currentCameraIndex + 1) % cameras.length;
+            
+            console.log('Switching to camera:', currentCameraIndex, cameras[currentCameraIndex]);
+            
+            await startCameraWithDevice(cameras[currentCameraIndex].deviceId);
+            
+            // Update camera info
+            updateCameraInfo();
+            
+            // Re-enable button
+            cameraSwitch.disabled = false;
+        }
+
+        // Update camera info display
+        function updateCameraInfo() {
+            const cameraInfo = document.getElementById('cameraInfo');
+            if (cameras.length > 1) {
+                const currentCamera = cameras[currentCameraIndex];
+                let cameraName = currentCamera.label || `Camera ${currentCameraIndex + 1}`;
+                
+                // Simplify camera name for display
+                if (cameraName.toLowerCase().includes('back') || cameraName.toLowerCase().includes('rear')) {
+                    cameraName = 'Back Camera';
+                } else if (cameraName.toLowerCase().includes('front')) {
+                    cameraName = 'Front Camera';
+                } else if (cameraName.length > 20) {
+                    cameraName = `Camera ${currentCameraIndex + 1}`;
+                }
+                
+                cameraInfo.textContent = cameraName;
+                cameraInfo.classList.remove('hidden');
+                
+                // Hide after 2 seconds
+                setTimeout(() => {
+                    cameraInfo.classList.add('hidden');
+                }, 2000);
+            }
+        }
+
+        // Listen for device changes (cameras connected/disconnected)
+        if (navigator.mediaDevices && navigator.mediaDevices.addEventListener) {
+            navigator.mediaDevices.addEventListener('devicechange', async () => {
+                console.log('Device change detected');
+                await getCameras();
+            });
+        }
+
+        // Update text
+        function updateText() {
+            textOverlay.textContent = textInput.value || 'Hello World';
+        }
+
+        // Update font
+        function updateFont() {
+            textOverlay.style.fontFamily = fontSelect.value;
+        }
+
+        // Update size
+        function updateSize() {
+            const size = sizeSlider.value;
+            textOverlay.style.fontSize = size + 'px';
+            sizeValue.textContent = size + 'px';
+        }
+
+        // Update opacity
+        function updateOpacity() {
+            const opacity = opacitySlider.value;
+            textOverlay.style.color = `rgba(0, 0, 0, ${opacity/100})`;
+            opacityValue.textContent = opacity + '%';
+        }
+
+        // Update position
+        function updatePosition() {
+            const vertical = verticalSlider.value;
+            const horizontal = horizontalSlider.value;
+            const rotation = rotationSlider.value;
+            
+            textOverlay.style.top = vertical + '%';
+            textOverlay.style.left = horizontal + '%';
+            textOverlay.style.transform = `translate(-50%, -50%) rotate(${rotation}deg)`;
+            
+            verticalValue.textContent = vertical + '%';
+            horizontalValue.textContent = horizontal + '%';
+            rotationValue.textContent = rotation + '°';
+        }
+
+        // Toggle controls visibility
+        function toggleControlsVisibility() {
+            controls.classList.toggle('minimized');
+            toggleControls.textContent = controls.classList.contains('minimized') ? 'Show Controls' : 'Hide Controls';
+        }
+
+        // Preset buttons
+        document.querySelectorAll('.preset-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                textInput.value = btn.dataset.text;
+                updateText();
+            });
+        });
+
+        // Event listeners
+        startButton.addEventListener('click', startCamera);
+        cameraSwitch.addEventListener('click', switchCamera);
+        toggleControls.addEventListener('click', toggleControlsVisibility);
+        
+        textInput.addEventListener('input', updateText);
+        fontSelect.addEventListener('change', updateFont);
+        sizeSlider.addEventListener('input', updateSize);
+        opacitySlider.addEventListener('input', updateOpacity);
+        verticalSlider.addEventListener('input', updatePosition);
+        horizontalSlider.addEventListener('input', updatePosition);
+        rotationSlider.addEventListener('input', updatePosition);
+
+        // Prevent zooming on mobile
+        document.addEventListener('gesturestart', function(e) {
+            e.preventDefault();
+        });
+        
+        document.addEventListener('touchmove', function(e) {
+            if (e.scale !== 1) {
+                e.preventDefault();
+            }
+        }, { passive: false });
+    </script>
+</body>
+</html>
